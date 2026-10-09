@@ -1,0 +1,205 @@
+{
+  "records": [
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "EligibleUS"
+      },
+      "FirstName": "Maya",
+      "LastName": "Chen",
+      "Company": "Acme Robotics",
+      "Country": "United States",
+      "AnnualRevenue": 5000000,
+      "Industry": "Technology",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Passes all rules (US)",
+      "NumberOfEmployees": 120,
+      "Email": "maya.chen@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "EligibleCanada"
+      },
+      "FirstName": "Liam",
+      "LastName": "Tremblay",
+      "Company": "Northwind Manufacturing",
+      "Country": "Canada",
+      "AnnualRevenue": 1500000,
+      "Industry": "Manufacturing",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Passes all rules (Canada)",
+      "NumberOfEmployees": 75,
+      "Email": "liam.tremblay@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "EligibleUKEdge"
+      },
+      "FirstName": "Olivia",
+      "LastName": "Hughes",
+      "Company": "Bramble Analytics",
+      "Country": "United Kingdom",
+      "AnnualRevenue": 1000000,
+      "Industry": "Consulting",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Passes at the exact limits (50 employees, 1M revenue)",
+      "NumberOfEmployees": 50,
+      "Email": "olivia.hughes@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "CountryAlias"
+      },
+      "FirstName": "Noah",
+      "LastName": "Rivera",
+      "Company": "Summit Health Partners",
+      "Country": "USA",
+      "AnnualRevenue": 12000000,
+      "Industry": "Healthcare",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Entered as 'USA'; saved as 'United States' by the base standardizer",
+      "NumberOfEmployees": 300,
+      "Email": "noah.rivera@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "FailCountry"
+      },
+      "FirstName": "Lena",
+      "LastName": "Fischer",
+      "Company": "Kestrel Systems GmbH",
+      "Country": "Germany",
+      "AnnualRevenue": 10000000,
+      "Industry": "Technology",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails country rule",
+      "NumberOfEmployees": 300,
+      "Email": "lena.fischer@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "FailEmployees"
+      },
+      "FirstName": "Ava",
+      "LastName": "Patel",
+      "Company": "Tiny Tools Co",
+      "Country": "United States",
+      "AnnualRevenue": 2000000,
+      "Industry": "Retail",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails employees rule (49)",
+      "NumberOfEmployees": 49,
+      "Email": "ava.patel@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "FailRevenue"
+      },
+      "FirstName": "Ethan",
+      "LastName": "Wong",
+      "Company": "Small Ledger Inc",
+      "Country": "Canada",
+      "AnnualRevenue": 999999,
+      "Industry": "Finance",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails revenue rule (999,999)",
+      "NumberOfEmployees": 80,
+      "Email": "ethan.wong@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "FailGovernment"
+      },
+      "FirstName": "Grace",
+      "LastName": "Miller",
+      "Company": "City Works Department",
+      "Country": "United States",
+      "AnnualRevenue": 20000000,
+      "Industry": "Government",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails industry rule (Government)",
+      "NumberOfEmployees": 500,
+      "Email": "grace.miller@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "FailEducation"
+      },
+      "FirstName": "Henry",
+      "LastName": "Clarke",
+      "Company": "Maple Valley College",
+      "Country": "Canada",
+      "AnnualRevenue": 8000000,
+      "Industry": "Education",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails industry rule (Education)",
+      "NumberOfEmployees": 200,
+      "Email": "henry.clarke@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "MissingEmail"
+      },
+      "FirstName": "Sofia",
+      "LastName": "Garcia",
+      "Company": "Harbor Logistics",
+      "Country": "United States",
+      "AnnualRevenue": 3000000,
+      "Industry": "Transportation",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Missing email",
+      "NumberOfEmployees": 150
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "MissingEmployees"
+      },
+      "FirstName": "James",
+      "LastName": "Evans",
+      "Company": "Unknown Size Ltd",
+      "Country": "United Kingdom",
+      "AnnualRevenue": 2000000,
+      "Industry": "Technology",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Missing employee count",
+      "Email": "james.evans@example.com"
+    },
+    {
+      "attributes": {
+        "type": "Lead",
+        "referenceId": "MixedFailAndMissing"
+      },
+      "FirstName": "Zoe",
+      "LastName": "Adams",
+      "Company": "Pine County Services",
+      "Country": "United States",
+      "AnnualRevenue": 2000000,
+      "Industry": "Government",
+      "Status": "Open - Not Contacted",
+      "LeadSource": "Web",
+      "Description": "Sample data: Fails industry AND missing email: precedence is an open business decision",
+      "NumberOfEmployees": 100
+    }
+  ]
+}

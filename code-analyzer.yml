@@ -1,0 +1,26 @@
+# Salesforce Code Analyzer team policy.
+# CI (01-pr-validation.yml) blocks the merge on any Sev 1 (Critical) finding.
+# Severities: 1 Critical, 2 High, 3 Moderate, 4 Low, 5 Info.
+# Docs: https://developer.salesforce.com/docs/platform/salesforce-code-analyzer/guide/config-custom.html
+
+ignores:
+  files:
+    - "**/__tests__/**"
+    - "**/node_modules/**"
+
+rules:
+  pmd:
+    # Security rules that must block a merge.
+    ApexCRUDViolation:
+      severity: 1 # query or DML without CRUD/FLS checks; use WITH USER_MODE / AccessLevel.USER_MODE
+    ApexSOQLInjection:
+      severity: 1
+    ApexSharingViolations:
+      severity: 1 # class with DML or SOQL and no sharing keyword
+    ApexBadCrypto:
+      severity: 1
+    ApexInsecureEndpoint:
+      severity: 1
+    # Bulk-safety rules. High, not blocking; the AI review and tech lead check them.
+    OperationWithLimitsInLoop:
+      severity: 2

@@ -1,0 +1,94 @@
+name: Release preparation
+on:
+  workflow_dispatch:
+    inputs:
+      release_month:
+        description: Release month YYYY.MM
+        required: true
+        type: string
+      qa_run_id:
+        description: Successful QA deployment workflow run ID
+        required: true
+        type: string
+      jira_keys:
+        description: Accepted stories, e.g. SCRUM-10 SCRUM-11 SCRUM-12
+        required: true
+        type: string
+      blocker_review:
+        description: Link to QA acceptance and reviewed blocker list
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: release-preparation
+  cancel-in-progress: false
+jobs:
+  freeze:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release-freeze
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Verify QA evidence and freeze exact tested commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_MONTH: ${{ inputs.release_month }}
+          QA_RUN_ID: ${{ inputs.qa_run_id }}
+          JIRA_KEYS: ${{ inputs.jira_keys }}
+          BLOCKER_REVIEW: ${{ inputs.blocker_review }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_MONTH" =~ ^20[0-9]{2}\.(0[1-9]|1[0-2])$ ]]
+          [[ "$QA_RUN_ID" =~ ^[0-9]+$ ]]
+          mkdir -p evidence
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$QA_RUN_ID" > evidence/qa-run.json
+          jq -e --arg repo "$GITHUB_REPOSITORY" '
+            .status == "completed" and .conclusion == "success" and
+            .path == ".github/workflows/02-qa-deployment.yml" and
+            .head_branch == "develop" and .repository.full_name == $repo
+          ' evidence/qa-run.json > /dev/null
+          sha=$(jq -er '.head_sha' evidence/qa-run.json)
+          [[ "$sha" == "$(git rev-parse origin/develop)" ]] || {
+            echo '::error::develop advanced; rerun QA before freezing'; exit 1;
+          }
+          branch="release/$RELEASE_MONTH"
+          tag="freeze-$RELEASE_MONTH"
+          if [[ -n "$(git ls-remote --heads origin "$branch")" ||
+                -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]]; then
+            echo '::error::Release branch or freeze tag already exists'; exit 1
+          fi
+          git push --atomic origin "$sha:refs/heads/$branch" "$sha:refs/tags/$tag"
+          gh api "repos/$GITHUB_REPOSITORY/compare/main...$sha"             --jq '.commits[].commit.message' > evidence/commits.txt
+          {
+            # shellcheck disable=SC2016
+            printf '# Release %s\n\nFrozen SHA: `%s`\n\n' "$RELEASE_MONTH" "$sha"
+            printf 'Stories: %s\n\nQA run: %s\n\nBlocker review: %s\n\n'               "$JIRA_KEYS" "$QA_RUN_ID" "$BLOCKER_REVIEW"
+            cat evidence/commits.txt
+          } > evidence/release-notes.md
+          cat evidence/release-notes.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py

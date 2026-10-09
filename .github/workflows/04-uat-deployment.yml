@@ -1,0 +1,107 @@
+name: UAT deployment
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: Frozen release branch, e.g. release/2026.10
+        required: true
+        type: string
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: salesforce-uat
+  cancel-in-progress: false
+jobs:
+  regression:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: uat
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      baseline: ${{ steps.release.outputs.baseline }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Resolve and verify frozen release
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: python3 scripts/ci/evidence.py resolve
+      - uses: ./.github/actions/setup-salesforce
+        with:
+          auth-url: ${{ secrets.SFDX_AUTH_URL }}
+          expected-org-id: ${{ vars.SF_ORG_ID }}
+          org-alias: playbook-uat
+          cli-version: ${{ vars.SF_CLI_VERSION || 'latest' }}
+          delta-version: ${{ vars.SGD_VERSION || 'latest' }}
+          delta: 'false'
+
+      - run: npm ci
+      - run: bash scripts/ci/tests.sh jest
+      - run: bash scripts/ci/package.sh full
+      - name: Deploy and run Apex regression
+        run: |
+          sf project deploy start --manifest build/package.xml --target-org playbook-uat             --test-level RunLocalTests --wait 60 --json > evidence/uat-deploy.json
+      - name: Full UI regression
+        env:
+          TARGET_ALIAS: playbook-uat
+        run: bash scripts/ci/tests.sh regression
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uat-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  business-signoff:
+    needs: regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: uat-signoff
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Write sign-off evidence after business owner approval
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          FROZEN_SHA: ${{ needs.regression.outputs.sha }}
+          BASELINE_SHA: ${{ needs.regression.outputs.baseline }}
+          EXPECTED_ORG_ID: ${{ vars.SF_ORG_ID }}
+        run: |
+          mkdir -p evidence
+          python3 - <<'RECORD'
+          import json, os
+          from pathlib import Path
+          record=dict(kind='uat', sha=os.environ['FROZEN_SHA'],
+            baseline=os.environ['BASELINE_SHA'], release_branch=os.environ['RELEASE_BRANCH'],
+            org_id=os.environ['EXPECTED_ORG_ID'], run_id=os.environ['GITHUB_RUN_ID'])
+          Path('evidence/attestation.json').write_text(json.dumps(record,indent=2))
+          RECORD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: uat-attestation
+          overwrite: true
+          path: evidence/attestation.json
+          retention-days: 30
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py

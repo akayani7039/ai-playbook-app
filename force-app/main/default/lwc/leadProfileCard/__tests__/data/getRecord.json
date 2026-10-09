@@ -1,0 +1,11 @@
+{
+  "apiName": "Lead",
+  "id": "00Q000000000001AAA",
+  "fields": {
+    "Company": { "value": "Acme Robotics", "displayValue": null },
+    "Country": { "value": "United States", "displayValue": null },
+    "NumberOfEmployees": { "value": 120, "displayValue": null },
+    "AnnualRevenue": { "value": 5000000, "displayValue": "$5,000,000" },
+    "Industry": { "value": "Technology", "displayValue": "Technology" }
+  }
+}

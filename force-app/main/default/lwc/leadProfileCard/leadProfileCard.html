@@ -1,0 +1,29 @@
+<template>
+    <lightning-card title="Lead Profile" icon-name="standard:lead">
+        <template lwc:if={lead}>
+            <dl class="slds-list_horizontal slds-wrap slds-p-horizontal_medium">
+                <dt class="slds-item_label slds-text-color_weak slds-truncate">Company</dt>
+                <dd class="slds-item_detail slds-truncate" data-id="company">{company}</dd>
+                <dt class="slds-item_label slds-text-color_weak slds-truncate">Country</dt>
+                <dd class="slds-item_detail slds-truncate" data-id="country">{country}</dd>
+                <dt class="slds-item_label slds-text-color_weak slds-truncate">Employees</dt>
+                <dd class="slds-item_detail slds-truncate" data-id="employees">
+                    <lightning-formatted-number value={employees}></lightning-formatted-number>
+                </dd>
+                <dt class="slds-item_label slds-text-color_weak slds-truncate">Annual revenue</dt>
+                <dd class="slds-item_detail slds-truncate" data-id="revenue">
+                    <lightning-formatted-number
+                        value={annualRevenue}
+                        format-style="currency"
+                        maximum-fraction-digits="0"
+                    ></lightning-formatted-number>
+                </dd>
+                <dt class="slds-item_label slds-text-color_weak slds-truncate">Industry</dt>
+                <dd class="slds-item_detail slds-truncate" data-id="industry">{industry}</dd>
+            </dl>
+        </template>
+        <template lwc:elseif={errorMessage}>
+            <p class="slds-p-horizontal_medium slds-text-color_error" data-id="error">{errorMessage}</p>
+        </template>
+    </lightning-card>
+</template>

@@ -1,0 +1,64 @@
+name: Setup Salesforce
+description: Install CLI and authenticate an environment-specific org
+
+inputs:
+  auth-url:
+    description: Environment secret containing an SFDX auth URL
+    required: true
+  expected-org-id:
+    description: Expected 18-character target org ID
+    required: true
+  org-alias:
+    description: Runner-local alias
+    required: true
+  delta:
+    description: Install sfdx-git-delta
+    default: 'false'
+  cli-version:
+    description: Exact tested CLI version, or latest during initial rehearsal
+    default: latest
+  delta-version:
+    description: Exact tested delta version, or latest during initial rehearsal
+    default: latest
+outputs:
+  org-id:
+    description: Verified target org ID
+    value: ${{ steps.auth.outputs.org-id }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v6
+      with:
+        node-version: '24'
+    - name: Install Salesforce CLI
+      shell: bash
+      env:
+        CLI_VERSION: ${{ inputs.cli-version }}
+      run: npm install --global "@salesforce/cli@$CLI_VERSION"
+    - name: Install delta plugin
+      if: inputs.delta == 'true'
+      shell: bash
+      env:
+        DELTA_VERSION: ${{ inputs.delta-version }}
+      run: |
+        printf 'y\n' | sf plugins install "sfdx-git-delta@$DELTA_VERSION"
+    - name: Authenticate and verify target identity
+      id: auth
+      shell: bash
+      env:
+        SFDX_AUTH_URL: ${{ inputs.auth-url }}
+        EXPECTED_ORG_ID: ${{ inputs.expected-org-id }}
+        TARGET_ALIAS: ${{ inputs.org-alias }}
+      run: |
+        set -euo pipefail
+        [[ -n "$SFDX_AUTH_URL" && -n "$EXPECTED_ORG_ID" ]]
+        auth_file=$(mktemp)
+        chmod 600 "$auth_file"
+        trap 'rm -f "$auth_file"' EXIT
+        printf '%s' "$SFDX_AUTH_URL" > "$auth_file"
+        sf org login sfdx-url --sfdx-url-file "$auth_file" --alias "$TARGET_ALIAS" > /dev/null
+        actual_id=$(sf data query --target-org "$TARGET_ALIAS"           --query 'SELECT Id FROM Organization' --json | jq -er '.result.records[0].Id')
+        [[ "$actual_id" == "$EXPECTED_ORG_ID" ]] || {
+          echo '::error::Authenticated to the wrong Salesforce org'; exit 1;
+        }
+        echo "org-id=$actual_id" >> "$GITHUB_OUTPUT"

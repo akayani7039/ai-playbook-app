@@ -1,0 +1,109 @@
+name: Production validation
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: Frozen release branch, e.g. release/2026.10
+        required: true
+        type: string
+
+      uat_run_id:
+        description: Successful UAT deployment and business sign-off run ID
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: salesforce-production
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production-validation
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Resolve and verify frozen release
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: python3 scripts/ci/evidence.py resolve
+      - name: Verify successful prerequisite run and matching release
+        id: prerequisite
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_KIND: uat
+          EVIDENCE_RUN_ID: ${{ inputs.uat_run_id }}
+          EXPECTED_ORG_ID: ''
+        run: python3 scripts/ci/evidence.py fetch
+      - uses: ./.github/actions/setup-salesforce
+        with:
+          auth-url: ${{ secrets.SFDX_AUTH_URL }}
+          expected-org-id: ${{ vars.SF_ORG_ID }}
+          org-alias: playbook-prod
+          cli-version: ${{ vars.SF_CLI_VERSION || 'latest' }}
+          delta-version: ${{ vars.SGD_VERSION || 'latest' }}
+          delta: 'true'
+
+      - name: Generate exact release delta from main
+        env:
+          BASE_SHA: ${{ steps.release.outputs.baseline }}
+        run: |
+          bash scripts/ci/package.sh delta "$BASE_SHA"
+          python3 scripts/ci/has_metadata.py || {
+            echo '::error::No metadata changes to validate'; exit 1;
+          }
+      - name: Record validation start
+        run: echo "VALIDATION_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" >> "$GITHUB_ENV"
+      - name: Validate without deploying
+        run: |
+          sf project deploy validate --manifest build/package.xml             --target-org playbook-prod --test-level RunLocalTests --wait 60             --json > evidence/production-validation.json
+      - name: Record bound validation ID
+        env:
+          EVIDENCE_KIND: production-validation
+          EXPECTED_ORG_ID: ${{ vars.SF_ORG_ID }}
+        run: python3 scripts/ci/evidence.py write
+      - name: Generate reviewable runbook
+        run: |
+          {
+            echo '# Production deployment runbook'
+            echo '1. Review UAT sign-off and production validation evidence.'
+            echo '2. Approve workflow 06 for this validation run and frozen SHA.'
+            echo '3. Quick deploy exactly the saved validation ID; run read-only smoke.'
+            echo '4. Review and merge the generated release-to-main PR.'
+            echo 'Recovery: stop on a failed smoke; do not mark release accepted.'
+            echo 'Restore the prior main commit through a separately reviewed deployment.'
+            echo 'Metadata redeploy does not restore deleted data or undo migrations.'
+            cat evidence/attestation.json
+          } > evidence/runbook.md
+          cat evidence/runbook.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-validation-attestation
+          overwrite: true
+          path: evidence/attestation.json
+          retention-days: 10
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py

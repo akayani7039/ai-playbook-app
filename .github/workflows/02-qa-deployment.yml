@@ -1,0 +1,65 @@
+name: QA deployment
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+
+# Queue rather than interrupt an in-flight deployment.
+concurrency:
+  group: salesforce-qa
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: qa
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-salesforce
+        with:
+          auth-url: ${{ secrets.SFDX_AUTH_URL }}
+          expected-org-id: ${{ vars.SF_ORG_ID }}
+          org-alias: playbook-qa
+          cli-version: ${{ vars.SF_CLI_VERSION || 'latest' }}
+          delta-version: ${{ vars.SGD_VERSION || 'latest' }}
+          delta: 'false'
+
+      - run: npm ci
+      - run: bash scripts/ci/package.sh full
+      - name: Deploy combined develop state
+        run: |
+          sf project deploy start --manifest build/package.xml             --target-org playbook-qa --test-level RunLocalTests --wait 45             --json > evidence/qa-deploy.json
+      - name: QA smoke tests
+        env:
+          TARGET_ALIAS: playbook-qa
+        run: bash scripts/ci/tests.sh smoke
+      - name: Record deployed commit
+        run: git rev-parse HEAD > evidence/qa-sha.txt
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py

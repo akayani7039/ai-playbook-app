@@ -1,0 +1,122 @@
+name: Production deployment
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: Frozen release branch, e.g. release/2026.10
+        required: true
+        type: string
+
+      validation_run_id:
+        description: Successful production validation run ID (workflow 05)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: salesforce-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: production
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Resolve and verify frozen release
+        id: release
+        env:
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+        run: python3 scripts/ci/evidence.py resolve
+      - name: Verify successful prerequisite run and matching release
+        id: prerequisite
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_KIND: production-validation
+          EVIDENCE_RUN_ID: ${{ inputs.validation_run_id }}
+          EXPECTED_ORG_ID: ${{ vars.SF_ORG_ID }}
+        run: python3 scripts/ci/evidence.py fetch
+      - uses: ./.github/actions/setup-salesforce
+        with:
+          auth-url: ${{ secrets.SFDX_AUTH_URL }}
+          expected-org-id: ${{ vars.SF_ORG_ID }}
+          org-alias: playbook-prod
+          cli-version: ${{ vars.SF_CLI_VERSION || 'latest' }}
+          delta-version: ${{ vars.SGD_VERSION || 'latest' }}
+          delta: 'false'
+
+      - name: Quick deploy the verified validation ID
+        env:
+          VALIDATION_ID: ${{ steps.prerequisite.outputs.validation-id }}
+        run: |
+          mkdir -p evidence
+          sf project deploy quick --job-id "$VALIDATION_ID" --target-org playbook-prod             --wait 45 --json > evidence/production-deploy.json
+      - run: npm ci
+      - name: Read-only production smoke
+        env:
+          TARGET_ALIAS: playbook-prod
+        run: bash scripts/ci/tests.sh prod-smoke
+      - name: Record deployed SHA and validation identity
+        run: |
+          cp build/prerequisite/attestation.json evidence/deployed-release.json
+          echo 'Quick deploy and smoke passed. Main PR still needs review.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  finalize:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release-finalization
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Tag deployed commit and open release-to-main PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
+          DEPLOYED_SHA: ${{ needs.deploy.outputs.sha }}
+        run: |
+          set -euo pipefail
+          tag="prod-${RELEASE_BRANCH#release/}"
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            [[ "$(git rev-parse "$tag^{commit}")" == "$DEPLOYED_SHA" ]]
+          else
+            git push origin "$DEPLOYED_SHA:refs/tags/$tag"
+          fi
+          printf 'Deployed SHA: %s\n\nProduction smoke passed. Review and merge this PR under main branch protection.\n'             "$DEPLOYED_SHA" > /tmp/release-pr.md
+          existing=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main             --head "$RELEASE_BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [[ -n "$existing" ]]; then
+            echo "$existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$RELEASE_BRANCH"               --title "Release ${RELEASE_BRANCH#release/}" --body-file /tmp/release-pr.md               >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py

@@ -1,0 +1,92 @@
+name: PR validation
+on:
+  pull_request:
+    branches: [develop, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: pr-validation
+    steps:
+      - name: Only trusted internal PRs may use Salesforce credentials
+        env:
+          INTERNAL: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          [[ "$INTERNAL" == true ]] || {
+            echo '::error::Fork PR needs a maintainer-controlled validation path'; exit 1;
+          }
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-salesforce
+        with:
+          auth-url: ${{ secrets.SFDX_AUTH_URL }}
+          expected-org-id: ${{ vars.SF_ORG_ID }}
+          org-alias: playbook-qa
+          cli-version: ${{ vars.SF_CLI_VERSION || 'latest' }}
+          delta-version: ${{ vars.SGD_VERSION || 'latest' }}
+          delta: 'true'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Jest
+        run: bash scripts/ci/tests.sh jest
+      - name: Code Analyzer
+        id: analyzer
+        uses: forcedotcom/run-code-analyzer@v2
+        with:
+          run-arguments: --workspace force-app --output-file evidence/code-analyzer.json
+          results-artifact-name: code-analyzer-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Analyzer must run successfully and have zero Sev 1 findings
+        env:
+          EXIT_CODE: ${{ steps.analyzer.outputs.exit-code }}
+          SEV1: ${{ steps.analyzer.outputs.num-sev1-violations }}
+        run: |
+          [[ "$EXIT_CODE" == 0 && "$SEV1" == 0 ]] || exit 1
+      - name: Build PR delta from base to GitHub test-merge commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/ci/package.sh delta "$BASE_SHA"
+      - name: Validate delta against QA with Apex tests
+        run: |
+          if python3 scripts/ci/has_metadata.py; then
+            sf project deploy start --dry-run --manifest build/package.xml               --target-org playbook-qa --test-level RunLocalTests --wait 45               --json > evidence/pr-validation.json
+          else
+            echo 'No metadata changes; Jest and analyzer still ran.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            evidence/
+            build/package.xml
+            build/destructiveChanges.xml
+            coverage/
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Optional Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+        run: python3 scripts/ci/notify.py
