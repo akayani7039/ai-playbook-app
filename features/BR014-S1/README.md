@@ -43,3 +43,7 @@ A lead is eligible only if it meets all five rules.
 
 | Component | Type | Change |
 | --------- | ---- | ------ |
+| LeadEligibilityResult | Apex class | New |
+| LeadEligibilityService | Apex class | New |
+| LeadEligibilityServiceTest | Apex test class | New (9 tests, 100% coverage) |
+| scripts/apex/br014-s1-try-it.apex | Anonymous Apex | New, read-only try-it script |
