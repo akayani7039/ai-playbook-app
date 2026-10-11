@@ -47,6 +47,8 @@ jobs:
       - run: npm ci
       - name: Jest
         run: bash scripts/ci/tests.sh jest
+      - name: Prepare evidence folder
+        run: mkdir -p evidence
       - name: Code Analyzer
         id: analyzer
         uses: forcedotcom/run-code-analyzer@v2
