@@ -34,6 +34,8 @@ jobs:
 
       - run: npm ci
       - run: bash scripts/ci/package.sh full
+      - name: Prepare evidence folder
+        run: mkdir -p evidence
       - name: Deploy combined develop state
         run: |
           sf project deploy start --manifest build/package.xml             --target-org playbook-qa --test-level RunLocalTests --wait 45             --json > evidence/qa-deploy.json
