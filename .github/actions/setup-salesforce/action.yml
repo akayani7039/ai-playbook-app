@@ -57,6 +57,9 @@ runs:
         trap 'rm -f "$auth_file"' EXIT
         printf '%s' "$SFDX_AUTH_URL" > "$auth_file"
         sf org login sfdx-url --sfdx-url-file "$auth_file" --alias "$TARGET_ALIAS" > /dev/null
+        # Scratch orgs turn on source tracking. A fresh runner has no tracking history, so
+        # every deploy after the first would stop on conflicts. CI deploys from manifests.
+        sf org disable tracking --target-org "$TARGET_ALIAS" > /dev/null
         actual_id=$(sf data query --target-org "$TARGET_ALIAS"           --query 'SELECT Id FROM Organization' --json | jq -er '.result.records[0].Id')
         [[ "$actual_id" == "$EXPECTED_ORG_ID" ]] || {
           echo '::error::Authenticated to the wrong Salesforce org'; exit 1;
