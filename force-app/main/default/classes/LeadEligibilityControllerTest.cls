@@ -125,6 +125,27 @@ private class LeadEligibilityControllerTest {
     Assert.areEqual(asAdmin.reasons, asRep.reasons);
   }
 
+  /** Minimum Access grants no Lead access, so the rep's access comes only from Sales_Rep_Base. */
+  @IsTest
+  static void salesRepBasePermissionSetAloneIsEnough() {
+    User rep = insertUser('Minimum Access - Salesforce', true);
+    Lead record = TestDataFactory.buildLead();
+    record.OwnerId = rep.Id;
+    record.AnnualRevenue = 999999;
+    insert record;
+
+    LeadEligibilityResult asAdmin = LeadEligibilityController.checkEligibility(
+      record.Id
+    );
+    LeadEligibilityResult asRep;
+    System.runAs(rep) {
+      asRep = LeadEligibilityController.checkEligibility(record.Id);
+    }
+
+    Assert.areEqual(LeadEligibilityResult.NOT_ELIGIBLE, asRep.outcome);
+    Assert.areEqual(asAdmin.reasons, asRep.reasons);
+  }
+
   private static void assertClearMessage(Id leadId, String expectedMessage) {
     try {
       LeadEligibilityController.checkEligibility(leadId);

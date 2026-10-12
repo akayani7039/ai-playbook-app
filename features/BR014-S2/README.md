@@ -31,7 +31,7 @@ Depends on BR014-S1. Ships with S1 and S3 in release/2026.10.
 | Component                        | Type                  | Change                                                                                          |
 | -------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------- |
 | `LeadEligibilityController`      | Apex class            | New: `checkEligibility(leadId)` loads the lead `WITH USER_MODE` and returns the S1 result       |
-| `LeadEligibilityControllerTest`  | Apex test class       | New: 8 tests for AC 2, 3, 4, 5, 7 and 8                                                         |
+| `LeadEligibilityControllerTest`  | Apex test class       | New: 9 tests for AC 2, 3, 4, 5, 7 and 8                                                         |
 | `leadEligibilityCheck`           | LWC                   | New: "Eligibility check" card with a "Check eligibility" button, outcome badge and reasons list |
 | `leadEligibilityCheck.test.js`   | Jest test             | New: 5 tests for AC 1, 2, 3 and 7                                                               |
 | `Sales_Rep_Base`                 | Permission set        | Changed: class access to `LeadEligibilityController`; read-only `Lead.Address`                  |
