@@ -35,6 +35,12 @@
                 <identifier>c_leadProfileCard</identifier>
             </componentInstance>
         </itemInstances>
+        <itemInstances>
+            <componentInstance>
+                <componentName>leadEligibilityCheck</componentName>
+                <identifier>c_leadEligibilityCheck</identifier>
+            </componentInstance>
+        </itemInstances>
         <name>sidebar</name>
         <type>Region</type>
     </flexiPageRegions>

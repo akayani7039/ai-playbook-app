@@ -1,0 +1,32 @@
+<template>
+  <lightning-card title="Eligibility check" icon-name="standard:approval">
+    <lightning-button
+      slot="actions"
+      label="Check eligibility"
+      onclick={handleCheck}
+      disabled={isChecking}
+      data-id="check-button"
+    ></lightning-button>
+    <div class="slds-p-horizontal_medium">
+      <template lwc:if={isChecking}>
+        <lightning-spinner
+          alternative-text="Checking eligibility"
+          size="small"
+        ></lightning-spinner>
+      </template>
+      <template lwc:if={result}>
+        <span class={badgeClass} data-id="outcome">{result.outcome}</span>
+        <template lwc:if={hasReasons}>
+          <ul class="slds-list_dotted slds-m-top_small" data-id="reasons">
+            <template for:each={result.reasons} for:item="reason">
+              <li key={reason}>{reason}</li>
+            </template>
+          </ul>
+        </template>
+      </template>
+      <template lwc:elseif={errorMessage}>
+        <p class="slds-text-color_error" data-id="error">{errorMessage}</p>
+      </template>
+    </div>
+  </lightning-card>
+</template>
