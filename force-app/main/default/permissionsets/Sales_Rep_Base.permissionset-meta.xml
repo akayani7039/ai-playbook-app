@@ -2,38 +2,9 @@
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
   >Base Lead access for sales reps. Stories add their own fields and classes here.</description>
-    <classAccesses>
-        <apexClass>LeadEligibilityController</apexClass>
-        <enabled>true</enabled>
-    </classAccesses>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.Address</field>
-        <readable>true</readable>
-    </fieldPermissions>
     <fieldPermissions>
         <editable>true</editable>
         <field>Lead.AnnualRevenue</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.Eligibility_Checked_By__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.Eligibility_Checked_On__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.Eligibility_Reasons__c</field>
-        <readable>true</readable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <editable>false</editable>
-        <field>Lead.Eligibility_Result__c</field>
         <readable>true</readable>
     </fieldPermissions>
     <fieldPermissions>
