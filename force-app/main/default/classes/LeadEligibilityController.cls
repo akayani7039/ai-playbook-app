@@ -1,6 +1,7 @@
 /**
  * Runs the BR-014 eligibility check from the Lead record page (BR014-S2).
- * Loads the latest saved Lead and returns the S1 decision unchanged. No rule logic here.
+ * Loads the latest saved Lead, saves the S1 decision on it (BR014-S3) and returns it unchanged.
+ * No rule logic here.
  * The query runs WITH USER_MODE, so a rep who can't read a rule field gets a clear message
  * instead of an answer built on hidden values.
  */
@@ -11,6 +12,8 @@ public with sharing class LeadEligibilityController {
   private static final String NOT_AVAILABLE_MESSAGE = 'This lead isn\'t available. Refresh the page and try again.';
   @TestVisible
   private static final String NO_ACCESS_MESSAGE = 'You don\'t have access to all the lead details the check needs. Ask your admin for the Sales Rep Base permission set.';
+  @TestVisible
+  private static final String NOT_SAVED_MESSAGE = 'The check ran but the result couldn\'t be saved. Refresh the page and try again.';
 
   @AuraEnabled(cacheable=false)
   public static LeadEligibilityResult checkEligibility(Id leadId) {
@@ -32,7 +35,18 @@ public with sharing class LeadEligibilityController {
     if (leads.isEmpty()) {
       throw handled(NOT_AVAILABLE_MESSAGE);
     }
-    return LeadEligibilityService.evaluate(leads[0]);
+    LeadEligibilityResult result = LeadEligibilityService.evaluate(leads[0]);
+
+    // BR014-S3: every check saves its outcome. A result is never shown without being saved.
+    try {
+      LeadEligibilityRecorder.record(new List<LeadEligibilityResult>{ result });
+    } catch (Exception e) {
+      if (!(e instanceof DmlException || e instanceof NoAccessException)) {
+        throw e;
+      }
+      throw handled(NOT_SAVED_MESSAGE);
+    }
+    return result;
   }
 
   /** AuraHandledException only shows its message to the rep when it is set with setMessage. */

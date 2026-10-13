@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Eligibility_Reasons__c</fullName>
+    <description
+  >BR014-S3: failed rules and missing details from the latest eligibility check. Values match the reason text from LeadEligibilityService. Set only by LeadEligibilityRecorder.</description>
+    <inlineHelpText
+  >Set by the eligibility check. It can't be edited by hand.</inlineHelpText>
+    <label>Eligibility Reasons</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>MultiselectPicklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Not based in the US, Canada or UK</fullName>
+                <default>false</default>
+                <label>Not based in the US, Canada or UK</label>
+            </value>
+            <value>
+                <fullName>Fewer than 50 employees</fullName>
+                <default>false</default>
+                <label>Fewer than 50 employees</label>
+            </value>
+            <value>
+                <fullName>Annual revenue is below 1M</fullName>
+                <default>false</default>
+                <label>Annual revenue is below 1M</label>
+            </value>
+            <value>
+                <fullName>Industry is Government or Education</fullName>
+                <default>false</default>
+                <label>Industry is Government or Education</label>
+            </value>
+            <value>
+                <fullName>Country is missing</fullName>
+                <default>false</default>
+                <label>Country is missing</label>
+            </value>
+            <value>
+                <fullName>Number of employees is missing</fullName>
+                <default>false</default>
+                <label>Number of employees is missing</label>
+            </value>
+            <value>
+                <fullName>Annual revenue is missing</fullName>
+                <default>false</default>
+                <label>Annual revenue is missing</label>
+            </value>
+            <value>
+                <fullName>Industry is missing</fullName>
+                <default>false</default>
+                <label>Industry is missing</label>
+            </value>
+            <value>
+                <fullName>Email is missing</fullName>
+                <default>false</default>
+                <label>Email is missing</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+    <visibleLines>4</visibleLines>
+</CustomField>
