@@ -1,6 +1,7 @@
 import { createElement } from "@lwc/engine-dom";
 import LeadEligibilityCheck from "c/leadEligibilityCheck";
 import checkEligibility from "@salesforce/apex/LeadEligibilityController.checkEligibility";
+import { notifyRecordUpdateAvailable } from "lightning/uiRecordApi";
 
 jest.mock(
   "@salesforce/apex/LeadEligibilityController.checkEligibility",
@@ -67,6 +68,26 @@ describe("c-lead-eligibility-check", () => {
     expect(find(element, "outcome").textContent).toBe("Eligible");
     expect(find(element, "reasons")).toBeNull();
     expect(find(element, "error")).toBeNull();
+  });
+
+  it("refreshes the page's record data after a check", async () => {
+    checkEligibility.mockResolvedValue(ELIGIBLE);
+    const element = createComponent();
+
+    await clickCheck(element);
+
+    expect(notifyRecordUpdateAvailable).toHaveBeenCalledWith([
+      { recordId: LEAD_ID }
+    ]);
+  });
+
+  it("does not refresh the record data when the check fails", async () => {
+    checkEligibility.mockRejectedValue({ body: { message: "Not saved" } });
+    const element = createComponent();
+
+    await clickCheck(element);
+
+    expect(notifyRecordUpdateAvailable).not.toHaveBeenCalled();
   });
 
   it("shows Not eligible with one list item per reason", async () => {
