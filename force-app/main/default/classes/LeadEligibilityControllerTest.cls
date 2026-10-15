@@ -126,6 +126,47 @@ private class LeadEligibilityControllerTest {
     Assert.areEqual(asAdmin.reasons, asRep.reasons);
   }
 
+  @IsTest
+  static void checkSavesTheOutcomeOnTheLead() {
+    Lead record = TestDataFactory.buildLead();
+    record.Email = null;
+    insert record;
+
+    LeadEligibilityResult result = LeadEligibilityController.checkEligibility(
+      record.Id
+    );
+
+    Lead saved = [
+      SELECT
+        Eligibility_Result__c,
+        Eligibility_Reasons__c,
+        Eligibility_Checked_By__c
+      FROM Lead
+      WHERE Id = :record.Id
+    ];
+    Assert.areEqual(result.outcome, saved.Eligibility_Result__c);
+    Assert.areEqual('Email is missing', saved.Eligibility_Reasons__c);
+    Assert.areEqual(UserInfo.getUserId(), saved.Eligibility_Checked_By__c);
+  }
+
+  /** The user can read leads and every rule field, but can't edit leads, so the save fails. */
+  @IsTest
+  static void failedSaveGetsClearMessage() {
+    Lead record = TestDataFactory.createLeads(1)[0];
+    User readOnly = insertLeadReadOnlyUser();
+
+    System.runAs(readOnly) {
+      assertClearMessage(
+        record.Id,
+        LeadEligibilityController.NOT_SAVED_MESSAGE
+      );
+    }
+    Assert.isNull(
+      [SELECT Eligibility_Result__c FROM Lead WHERE Id = :record.Id]
+      .Eligibility_Result__c
+    );
+  }
+
   private static void assertClearMessage(Id leadId, String expectedMessage) {
     try {
       LeadEligibilityController.checkEligibility(leadId);
@@ -133,6 +174,51 @@ private class LeadEligibilityControllerTest {
     } catch (AuraHandledException e) {
       Assert.areEqual(expectedMessage, e.getMessage());
     }
+  }
+
+  /** Minimum Access user with a test permission set: Lead read and the rule fields, no edit. */
+  private static User insertLeadReadOnlyUser() {
+    User newUser = TestDataFactory.buildUser('Minimum Access - Salesforce');
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      insert newUser;
+      PermissionSet leadRead = new PermissionSet(
+        Name = 'BR014_Test_Lead_Read_Only',
+        Label = 'BR014 Test Lead Read Only'
+      );
+      insert leadRead;
+      insert new ObjectPermissions(
+        ParentId = leadRead.Id,
+        SobjectType = 'Lead',
+        PermissionsRead = true
+      );
+      List<FieldPermissions> fields = new List<FieldPermissions>();
+      for (
+        String field : new List<String>{
+          'Lead.Address',
+          'Lead.NumberOfEmployees',
+          'Lead.AnnualRevenue',
+          'Lead.Industry',
+          'Lead.Email',
+          'Lead.Rating',
+          'Lead.LeadSource'
+        }
+      ) {
+        fields.add(
+          new FieldPermissions(
+            ParentId = leadRead.Id,
+            SobjectType = 'Lead',
+            Field = field,
+            PermissionsRead = true
+          )
+        );
+      }
+      insert fields;
+      insert new PermissionSetAssignment(
+        AssigneeId = newUser.Id,
+        PermissionSetId = leadRead.Id
+      );
+    }
+    return newUser;
   }
 
   /** Setup DML runs as the current user so it doesn't mix with Lead DML. */
